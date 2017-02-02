@@ -1,0 +1,10 @@
+This is the codes for CSE517 homework 1
+Student: Kevin Lin
+
+How to use:
+python main.py
+
+Function Details:
+prob3_ngram()	-- This function will train n-gram models and compute the perplexity on the dataset
+prob4_add_k()	-- This function will train trigram model with add-k smoothing, and compute the perplexity on the dataset
+prob4_interpolation()	-- This function will train trigram model with linear interpolation, and compute the perplexity on the dataset
