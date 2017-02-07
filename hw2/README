@@ -1,0 +1,9 @@
+This is the codes for CSE517 homework 2
+Student: Kevin Lin
+
+How to use:
+python main.py
+
+Main functions:
+prob1_add_k() -- This function will train bigram HMM and compute the accuracy on the dataset
+
