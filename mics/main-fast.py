@@ -12,10 +12,11 @@ from math import log
 import numpy as np
 from glob import glob
 import multiprocessing
+import string
 
-CONFIG_PATH = '/home/titan/dataset/dataset/preproc/accv_split_details.json'
-DATA_PATH = '/kevindisk/data/new-*.json'
-IMG_PATH = '/kevindisk/data/img/*.jpg'
+CONFIG_PATH = '/home/titan/dataset/etsy-dataset/preproc/accv_split_details.json'
+DATA_PATH = '/kevindisk/etsy_data/new-*.json'
+IMG_PATH = '/kevindisk/etsy_data/img/*.jpg'
 listings = []
 train = []
 test = []
@@ -61,7 +62,7 @@ def selecting_data(filename, selected_subset, database, table):
 		json.dump(new_subset, f)
 	print 'write json file: %s'%filename		
 
-def read_dataset(config, data_path):
+def extract_data_from_dataset(config, data_path):
 	f = open(config,'r')
 	data = json.load(f)
 	global train
@@ -85,9 +86,67 @@ def read_dataset(config, data_path):
 	selecting_data('new_val.json', val, listings, table_id2idx)
 	selecting_data('new_test.json', test, listings, table_id2idx)
 
+def generate_vocab():
+	table_word2idx = defaultdict(lambda: 0)
+	table_idx2word = defaultdict(lambda: 0)	
+	filename = ['temp.json']#['new_train.json','new_val.json','new_test.json']
+	f1 = open(filename[0],'r')
+	#f2 = open(filename[1],'r')
+	#f3 = open(filename[2],'r')
+	train = json.load(f1)
+	#val = json.load(f2)
+	#test = json.load(f3)
+	counter = 0
+	for item in train:
+		desc = item['desc']
+		words = desc.split() 
+		print words
+		for w in words:
+			vocab = w.strip(string.punctuation)
+			if(table_word2idx.get(vocab,0)==0):
+				table_word2idx[vocab] = counter
+				#table_idx2word[counter] = vocab
+				counter += 1
 
+	table_idx2word = {v: k for k, v in table_word2idx.iteritems()}
+	with open('table_word2idx.json', 'w') as f:
+		json.dump(table_word2idx, f)
+	with open('table_idx2word.json', 'w') as f:
+		json.dump(table_idx2word, f)
+
+	caption_vectors = []
+	filename_vectors = []
+	datanum_vectors = []
+	for item in train:
+		vector = []
+		desc = item['desc']
+		words.plit()
+		for w in words:
+			vocab = w.strip(string.punctuation)
+			num = table_word2idx[vocab]
+			vector.append(num)
+		caption_vectors.append(vector)
+			
+			
+		
+
+
+
+def generate_img_list():
+	filename = ['new_train.json','new_val.json','new_test.json']
+	txtname = ['train-file-list.txt','val-file-list.txt','test-file-list.txt']
+	for fn in range(0,len(filename)):
+		text_file = open(txtname[fn], "w")
+		f = open(filename[fn],'r')
+		dataset = json.load(f)
+		for item in dataset:
+			text_file.write("%s\n" % item['filepath'])
+		text_file.close()
+		f.close()
+	
 def main():
-	read_dataset(CONFIG_PATH, DATA_PATH)
-
+	#extract_data_from_dataset(CONFIG_PATH, DATA_PATH)
+	#generate_img_list()
+	generate_vocab()
 if __name__ == "__main__":
 	main()
