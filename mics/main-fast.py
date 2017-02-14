@@ -13,6 +13,7 @@ import numpy as np
 from glob import glob
 import multiprocessing
 import string
+import pickle
 
 CONFIG_PATH = '/home/titan/dataset/etsy-dataset/preproc/accv_split_details.json'
 DATA_PATH = '/kevindisk/etsy_data/new-*.json'
@@ -86,16 +87,35 @@ def extract_data_from_dataset(config, data_path):
 	selecting_data('new_val.json', val, listings, table_id2idx)
 	selecting_data('new_test.json', test, listings, table_id2idx)
 
+def data_formulation(input_data, word2idx):
+	caption_vectors = []
+	filename_vectors = []
+	datanum_vectors = []
+	for idx, item in enumerate(input_data, start=0):
+		vector = []
+		desc = item['desc']
+		datanum_vectors.append(idx)
+		filename_vectors.append(item['listing_id'])
+		words = desc.split()
+		for w in words:
+			vocab = w.strip(string.punctuation)
+			num = word2idx[vocab]
+			vector.append(num)
+		caption_vectors.append(vector)
+	dataset = [caption_vectors, datanum_vectors, filename_vectors]
+	return (dataset)
+
 def generate_vocab():
 	table_word2idx = defaultdict(lambda: 0)
 	table_idx2word = defaultdict(lambda: 0)	
-	filename = ['temp.json']#['new_train.json','new_val.json','new_test.json']
+	#filename = ['temp.json']#['new_train.json','new_val.json','new_test.json']
+	filename = ['new_train.json','new_val.json','new_test.json']
 	f1 = open(filename[0],'r')
-	#f2 = open(filename[1],'r')
-	#f3 = open(filename[2],'r')
+	f2 = open(filename[1],'r')
+	f3 = open(filename[2],'r')
 	train = json.load(f1)
-	#val = json.load(f2)
-	#test = json.load(f3)
+	val = json.load(f2)
+	test = json.load(f3)
 	counter = 0
 	for item in train:
 		desc = item['desc']
@@ -114,23 +134,18 @@ def generate_vocab():
 	with open('table_idx2word.json', 'w') as f:
 		json.dump(table_idx2word, f)
 
-	caption_vectors = []
-	filename_vectors = []
-	datanum_vectors = []
-	for item in train:
-		vector = []
-		desc = item['desc']
-		words.plit()
-		for w in words:
-			vocab = w.strip(string.punctuation)
-			num = table_word2idx[vocab]
-			vector.append(num)
-		caption_vectors.append(vector)
-			
-			
-		
+	train_set = data_formulation(train, table_word2idx)
+	val_set = data_formulation(val, table_word2idx)
+	test_set = data_formulation(test, table_word2idx)
 
-
+	final_data = [train_set]
+	final_data.append(val_set)
+	final_data.append(test_set)
+	final_data.append(table_word2idx)
+	final_data.append(table_idx2word)
+	
+	with open('data.p', 'w') as handle:
+    		json.dump(final_data, handle)
 
 def generate_img_list():
 	filename = ['new_train.json','new_val.json','new_test.json']
