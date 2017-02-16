@@ -25,8 +25,10 @@ train = []
 test = []
 val = []
 
-table_id2idx = defaultdict(lambda: 0)
-
+table_id2idx = defaultdict(lambda: -1)
+missing_train_data = 0
+missing_val_data = 0
+missing_test_data = 0
 
 def jsonKeys2int(x):
     if isinstance(x, dict):
@@ -42,35 +44,47 @@ def find(dataset, spec):
 				print 'matching %d'%item['listing_id']
 				found = item
 	return found
-    #return [item for item in dataset if spec in item]
 
 def construct_table(dataset,table):
 	counter = 0
-	for item in dataset:
+	for i in range(0,len(dataset)):
+		item = dataset[i]
 		id_num = item['listing_id']
-		table_id2idx[id_num] = counter
-		counter += 1
+		#print 'id_num = %d'%id_num
+		table_id2idx[id_num] = i
+
 	return table
-	
-def selecting_data(filename, selected_subset, database, table):
+
+def selecting_data(filename, selected_subset, database, table_id2idx):
 	new_subset = []
-	beginning_decoding = time.time();
 	counter = 0
 	total_count = len(selected_subset)
-	for idx in selected_subset:
-		counter += 1
-		print 'process: %d/%d'%(counter,total_count)
-		list_idx = table[int(idx)]
-		item = database[list_idx]
-		if item!=None:
+	for i in range(0,len(selected_subset)):
+		#print 'process: %d/%d'%(idx,total_count)
+		id_num = selected_subset[i]
+		print 'id_num=%s'%id_num
+		list_idx = table_id2idx[int(id_num)]
+		print 'list_idx=%d'%list_idx
+		if list_idx>=0:
+			item = database[list_idx]
 			new_subset.append(item)
-	ending_decoding = time.time();
-	print "The decoding time is : ", ending_decoding - beginning_decoding;
+		else:
+			if filename == 'new_train.json':			
+				global missing_train_data
+				missing_train_data += 1
+			if filename == 'new_val.json':			
+				global missing_val_data
+				missing_val_data += 1
+			if filename == 'new_test.json':			
+				global missing_test_data
+				missing_test_data += 1
+
 	# Writing JSON data
 	with open(filename, 'w') as f:
 		json.dump(new_subset, f)
-	print 'write json file: %s'%filename		
+	print 'write json file: %s'%filename
 
+	
 def extract_data_from_dataset(config, data_path):
 	f = open(config,'r')
 	data = json.load(f)
@@ -94,6 +108,13 @@ def extract_data_from_dataset(config, data_path):
 	selecting_data('new_train.json', train, listings, table_id2idx)
 	selecting_data('new_val.json', val, listings, table_id2idx)
 	selecting_data('new_test.json', test, listings, table_id2idx)
+	global missing_train_data
+	print 'missing train data = %d'%missing_train_data
+	global missing_val_data
+	print 'missing val data = %d'%missing_val_data
+	global missing_test_data
+	print 'missing test data = %d'%missing_test_data
+
 
 def data_formulation(input_data, word2idx):
 	caption_vectors = []
@@ -114,9 +135,8 @@ def data_formulation(input_data, word2idx):
 	return (dataset)
 
 def generate_vocab():
-	table_word2idx = defaultdict(lambda: 0)
+	table_word2idx = {}
 	table_idx2word = {}
-	#filename = ['temp.json']#['new_train.json','new_val.json','new_test.json']
 	filename = ['new_train.json','new_val.json','new_test.json']
 	f1 = open(filename[0],'r')
 	f2 = open(filename[1],'r')
@@ -125,19 +145,16 @@ def generate_vocab():
 	val = json.load(f2)
 	test = json.load(f3)
 	counter = 0
-	for item in train:
+	for item in train+val+test:
 		desc = item['desc']
 		words = desc.split() 
-		#print words
 		for w in words:
 			vocab = w.strip(string.punctuation)
-			if(table_word2idx.get(vocab,0)==0):
+			if(table_word2idx.get(vocab,-1)==-1):
 				table_word2idx[vocab] = counter
 				table_idx2word[int(counter)] = vocab
 				counter += 1
 
-	#print table_idx2word[0]
-	#table_idx2word = {int(v): k for k, v in table_word2idx.iteritems()}
 	with open('table_word2idx.json', 'wb') as f:
 		json.dump(table_word2idx, f)
 	with open('table_idx2word.json', 'wb') as f:
@@ -147,16 +164,67 @@ def generate_vocab():
 	val_set = data_formulation(val, table_word2idx)
 	test_set = data_formulation(test, table_word2idx)
 
-	final_data = [train_set]
-	final_data.append(val_set)
-	final_data.append(test_set)
-	final_data.append(table_word2idx)
-	final_data.append(table_idx2word)
-	
-	with open('data.p', 'w') as handle:
-    		json.dump(final_data, handle)
+	final_data = (train_set,val_set,test_set,table_word2idx,table_idx2word)
 
+	with open('data.p', 'wb') as outfile:
+    		cPickle.dump(final_data, outfile, protocol=cPickle.HIGHEST_PROTOCOL)
+'''
+def generate_vocab():
+	table_word2idx = {}
+	table_idx2word = {}
+	filename = ['new_train.json','new_val.json','new_test.json']
+	f1 = open(filename[0],'r')
+	#f2 = open(filename[1],'r')
+	#f3 = open(filename[2],'r')
+	train = json.load(f1)
+	#val = json.load(f2)
+	#test = json.load(f3)
+	counter = 0
+	for i in range(99,100):
+		item = train[i]
+		desc = item['desc']
+		print desc
+		words = desc.split()		
+		for w in words:
+			vocab = w.strip(string.punctuation)
+			table_word2idx[vocab] = 1
 
+	for item in train:
+		counter += 1
+		desc = item['desc']
+		words = desc.split()
+		for w in words:
+			vocab = w.strip(string.punctuation)
+			table_word2idx[vocab] = 1
+
+	print len(table_word2idx)
+	print counter
+
+	for item in train+val+test:
+		desc = item['desc']
+		words = desc.split() 
+		for w in words:
+			vocab = w.strip(string.punctuation)
+			if(table_word2idx.get(vocab,-1)==-1):
+				table_word2idx[vocab] = counter
+				table_idx2word[int(counter)] = vocab
+				counter += 1
+
+	with open('table_word2idx.json', 'wb') as f:
+		json.dump(table_word2idx, f)
+	with open('table_idx2word.json', 'wb') as f:
+		json.dump(table_idx2word, f)
+
+	train_set = data_formulation(train, table_word2idx)
+	val_set = data_formulation(val, table_word2idx)
+	test_set = data_formulation(test, table_word2idx)
+
+	final_data = (train_set,val_set,test_set,table_word2idx,table_idx2word)
+
+	with open('data.p', 'wb') as outfile:
+    		cPickle.dump(final_data, outfile, protocol=cPickle.HIGHEST_PROTOCOL)
+
+'''
 def generate_img_list():
 	filename = ['new_train.json','new_val.json','new_test.json']
 	txtname = ['train-file-list.txt','val-file-list.txt','test-file-list.txt']
@@ -171,7 +239,7 @@ def generate_img_list():
 
 def read_word2vec(filename):
 	counter = 0
-	vocab = defaultdict(lambda: 0)
+	vocab = {}#defaultdict(lambda: 0)
 	with open(filename,'r') as lines:
 		w2v = [line.rstrip('\n') for line in lines]
 	lines.close()
@@ -186,33 +254,7 @@ def read_word2vec(filename):
 		word_feat.append(feat)
 		counter += 1
 	return (vocab,word_feat)
-'''
-def proc_word2vec():
-	(glove_voc,glove_w2v) = read_word2vec(GLOVE_PATH)
-	selected_w2v = []
-	selected_voc = defaultdict(lambda: 0)	 
-	f = open('table_word2idx.json', 'rb')
-	word2idx = json.load(f)
-	f2 = open('table_idx2word.json', 'rb')
-	idx2word = json.load(f2, object_hook=jsonKeys2int)
-	print 'vocb size = %d' % len(idx2word)
-	for i in range(1,len(idx2word)):
-		print i
-		w = idx2word[i]
-		selected_voc[w] = i
-		glove_indx = glove_voc.get(w,False)
-		if glove_indx == False:
-			glove_feat = [random.uniform(-0.5,0.5) for _ in range (300)]
-		else:
-			glove_feat = glove_w2v[glove_indx]
-		selected_w2v.append(glove_feat)
 
-	final_w2v = [selected_w2v] 
-	final_w2v.append(selected_voc)
-
-	with open('word2vec.p', 'wb') as handle:
-    		json.dump(final_w2v, handle)
-'''
 def proc_word2vec():
 	(glove_voc,glove_w2v) = read_word2vec(GLOVE_PATH)
 	selected_w2v = []
@@ -239,19 +281,15 @@ def proc_word2vec():
 
 	with open('word2vec.p', 'wb') as outfile:
     		cPickle.dump(saved_data, outfile, protocol=cPickle.HIGHEST_PROTOCOL)
-	'''
-	final_w2v = [selected_w2v] 
-	final_w2v.append(selected_voc)
-	'''
-	#with open('word2vec.p', 'wb') as handle:
-    	#	json.dump(saved_data, handle)	
-	
-	
+
 def main():
+	beginning_decoding = time.time();
 	#extract_data_from_dataset(CONFIG_PATH, DATA_PATH)
 	#generate_img_list()
-	#generate_vocab()
+	generate_vocab()
 	proc_word2vec()
+	ending_decoding = time.time();
+	print "The decoding time is : ", ending_decoding - beginning_decoding;
 	
 if __name__ == "__main__":
 	main()
