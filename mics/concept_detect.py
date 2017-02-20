@@ -7,10 +7,41 @@ from collections import defaultdict
 from operator import itemgetter
 
 CONCEPT_NUM = 1000
-if __name__ == '__main__':
 
-	
+def generate_file_list(MODE):
+	if MODE=='train':
+		split_mode = 'train'
+	elif MODE=='val':
+		split_mode = 'val'
+	elif MODE=='test':
+		split_mode = 'test'
 
+	dataset = json.load(open('/home/titan/dataset/coco/dataset.json', 'r'))
+	split = defaultdict(list)
+	for img in dataset['images']:
+		split[img['split']].append(img)
+	del dataset
+     
+	refs = []
+	refs_img = []
+    	for img in split[split_mode]:
+        	references = [' '.join(tmp['tokens']) for tmp in img['sentences']]
+		filename = img['filename']
+        	refs.append(references)
+		refs_img.append(filename)
+
+	fname = '%s-file-list.txt' % split_mode
+	text_file = open(fname, "w")
+	for i in range(0,len(refs_img)):
+		filename = refs_img[i]
+		if split_mode=='train':
+			text_file.write("/home/titan/dataset/coco-new/train2014/%s\n" % filename)
+		else:
+			text_file.write("/home/titan/dataset/coco-new/val2014/%s\n" % filename)
+	text_file.close()
+
+
+def generate_multilabel_concepts():
 	dataset = json.load(open('/home/titan/dataset/coco/dataset.json', 'r'))
 	split = defaultdict(list)
 	for img in dataset['images']:
@@ -50,7 +81,7 @@ if __name__ == '__main__':
 		else:
 			break
 
-
+	'''
 	for line in refs[0]:
 		vec = []
 		vec_concept = {}
@@ -69,8 +100,8 @@ if __name__ == '__main__':
 			valid = item
 			to_print[int(valid)] = 1
 		print "%s\n" % ' '.join(map(str, to_print))	
-
 	'''
+	
 	text_file = open("Output.txt", "w")
 	for i in range(0,len(refs)):
 		for line in refs[i]:
@@ -88,4 +119,13 @@ if __name__ == '__main__':
 			text_file.write("%s\n" % ' '.join(map(str, to_print)))	
 
 	text_file.close()
-	'''
+	
+
+if __name__ == '__main__':
+	#generate_file_list('train')
+	#generate_file_list('test')
+	#generate_file_list('val')
+	generate_multilabel_concepts()
+	
+
+
